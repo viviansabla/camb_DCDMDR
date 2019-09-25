@@ -1,0 +1,154 @@
+camb:
+317: P%omegadr = 0.0
+
+cmbmain: 
+952: ddelta= (yprime(3)*grhoc+yprime(4)*grhob+grhoc2*yprime(EV%d2_ix))/(grhob+grhoc+grhoc2)
+     delta=(grhoc*y(3)+grhob*y(4)+grhoc2*y(EV%d2_ix))/(grhob+grhoc+grhoc2)
+
+inidriver:
+112: P%omegadr = Ini_Read_Double('omdrh2')/(P%H0/100)**2
+124: P%omegadr = Ini_Read_Double('omega_dr')
+ 
+modules:
+116: real(dl)  :: omegac2, omegadr
+183: real(dl) grhoc2, grhodr, GamDCDM
+375: grhodr = 7._dl/8*(4._dl/11)**(4._dl/3)*grhog
+389: grhodr=grhom*CP%omegadr
+397: adotrad = sqrt((grhodr+grhog+grhornomass+sum(grhormass(1:CP%Nu_mass_eigenstates)))/3)
+416: EVout%high_ktau_darkrad_approx = .true.
+444: write(*,'("Om_dr h^2             = ",f9.6)') CP%omegadr*(CP%H0/100)**2
+2755: a_verydom = AccuracyBoost*5*(grhodr+grhog+grhornomass)/(grhoc+grhoc2+grhob)
+2980: z_eq = (grhob+grhoc+grhoc2)/(grhodr+grhog+grhornomass+sum(grhormass(1:CP%Nu_mass_eigenstates))) -1
+
+equations:  
+93: grhoa2=grhok*a2+(grhoc+grhoc2+grhob)*a+grhog+grhornomass+grhodr
+160: integer dr_ix !Index for dark radiation
+173: integer lmaxdr, lmaxdrt, lmaxdrv
+195: logical high_ktau_darkrad_approx
+217: logical no_darkrad_multpoles
+234: added 'grhodr_t, clxdr, qdr' to TSource_func
+314: real(dl) tau_switch_no_nu_multpoles, tau_switch_no_phot_multpoles, tau_switch_nu_nonrel, 
+     tau_switch_no_darkrad_multpoles
+325: tau_switch_no_darkrad_multpoles = noSwitch
+339: if (.not. EV%high_ktau_darkrad_approx .and. .not. EV%no_darkrad_multpoles ) then
+        tau_switch_ktau=  max(20, EV%lmaxdr-4)/EV%k_buf
+     end if
+361: if (.not. EV%no_darkrad_multpoles) &
+        tau_switch_no_darkrad_multpoles=max(15/	
+            EV%k_buf*AccuracyBoost,min(taurend,matter_verydom_tau))
+369: next_switch = min(tau_switch_ktau, tau_switch_nu_massless,EV%TightSwitchoffTime, 
+        tau_switch_nu_massive, tau_switch_no_nu_multpoles, tau_switch_no_darkrad_multpoles, 
+        tau_switch_no_phot_multpoles, tau_switch_nu_nonrel,noSwitch)
+413: EVout%high_ktau_darkrad_approx=.true.
+463: else if (next_switch==tau_switch_no_darkrad_multpoles) then
+        !Turn off dark rad hierarchies at late time where slow and not needed.
+        ind=1
+        EVout%no_darkrad_multpoles=.true.
+        call SetupScalarArrayIndices(EVout)
+        call CopyScalarVariableArray(y,yout, EV, EVout)
+        y=yout
+        EV=EVout
+658: if (.not. EV%no_darkrad_multpoles) then
+        !Massless neutrino multipoles
+        EV%dr_ix= neq+1
+        if (EV%high_ktau_darkrad_approx) then
+            neq=neq + 3
+        else
+            neq=neq + (EV%lmaxdr+1)
+        end if
+     end if
+     maxeq = maxeq + (EV%lmaxdr+1)
+713: if (.not. EV%no_darkrad_multpoles .and. .not. EVout%no_darkrad_multpoles) then
+        if (EV%high_ktau_darkrad_approx .or. EVout%high_ktau_darkrad_approx) then
+            lmax=2
+        else
+            lmax = min(EV%lmaxdr,EVout%lmaxdr)
+        end if
+        yout(EVout%dr_ix:EVout%dr_ix+lmax)=y(EV%dr_ix:EV%dr_ix+lmax)
+    end if
+882: EV%high_ktau_darkrad_approx = .false.
+889: EV%no_darkrad_multpoles =.false.
+900: EV%lmaxdr = max(nint(14*lAccuracyBoost),3)
+905: if (HighAccuracyDefault)
+            EV%lmaxdr = max(nint(32*lAccuracyBoost),3)
+918: EV%lmaxdr=max(3,nint(min(7,nint(sqrt(scal)* 150 * EV%q))*lAccuracyBoost))
+935: EV%lmaxdr=max(nint(45*lAccuracyBoost),3)
+940: EV%lmaxdr=max(nint(30*lAccuracyBoost),3)
+952: EV%lmaxdr=min(EV%lmaxdr, EV%FirstZerolForBeta-1)
+961: EV%MaxlNeeded=max(EV%lmaxg,EV%lmaxnr,EV%lmaxgpol,EV%lmaxnu,EV%lmaxdr)
+1561: om = (grhob+grhoc)/sqrt(3*(grhog+grhonu+grhodr))
+1564: Rv=grhonu/(grhonu+grhog+grhodr)
+1695: y(EV%dr_ix)=InitVec(i_clxr)
+      y(EV%dr_ix+1)=InitVec(i_qr)
+      y(EV%dr_ix+2)=InitVec(i_pir)
+
+      if (EV%lmaxdr>2) then
+        y(EV%dr_ix+3)=InitVec(i_aj3r)
+      end if
+1930: real(dl) clxdrdot, grhodr_t, qdrdot, pidrdot,clxdr, qdr, pidr, GamDCDM 
+1931: integer jx
+1958: grhodr_t=grhodr/a2
+1997: grho = grho_matter+grhor_t+grhog_t+grhov_t+grhodr_t
+2032: if (EV%no_darkrad_multpoles) then
+        z=(0.5_dl*dgrho/k + etak)/adotoa
+        dz= -adotoa*z - 0.5_dl*dgrho/k
+        clxdr=-4*dz/k
+        qdr=-4._dl/3*z
+        pidr=0
+      else
+        clxdr=ay(EV%dr_ix)
+        qdr  =ay(EV%dr_ix+1)
+        pidr =ay(EV%dr_ix+2)
+      end if
+2066: dgrho=dgrho + grhog_t*clxg+grhor_t*clxr+grhodr_t*clxdr
+2072: dgq=dgq + grhog_t*qg+grhor_t*qr+grhodr_t*qdr
+
+2263: if (.not. EV%no_darkrad_multpoles) then
+        !  Dark radiation equations of motion
+        clxdrdot= -k*qdr - (4._dl/3._dl)*k*z + a*GamDCDM*(grhoc2/grhodr)*(clxc2-clxdr)
+        ayprime(EV%dr_ix)=clxdrdot
+        qdrdot= (k/3._dl)*clxdr - (2._dl*k/3._dl)*pidr - a*GamDCDM*(grhoc2/grhodr)*qdr
+        ayprime(EV%dr_ix+1)=qdrdot
+        if (EV%high_ktau_darkrad_approx) then
+            pidrdot= -3._dl*pidr*cothxor - clxdrdot !DAMPED APPROXIMATION
+            ayprime(EV%dr_ix+2)=pidrdot
+        else
+            jx=EV%dr_ix+2
+            if (EV%lmaxdr>2) then
+                pidrdot= EV%denlk(2)*qdr - EV%denlk2(2)*ay(jx+1) + 8._dl/15._dl*k*sigma - a*GamDCDM*(grhoc2/grhodr)*pidr ! STANDARD CASE
+                ayprime(jx)=pidrdot
+                do l=3,EV%lmaxdr-1
+                    jx=jx+1
+                    ayprime(jx)=(EV%denlk(l)*ay(jx-1) - EV%denlk2(l)*ay(jx+1))
+                end do
+                !  Truncate the dark radiation expansion
+                jx=jx+1
+                ayprime(jx)=k*ay(jx-1)- (EV%lmaxdr+1)*cothxor*ay(jx)
+            else
+                pidrdot= EV%denlk(2)*qdr + 8._dl/15._dl*k*sigma - a*GamDCDM*(grhoc2/grhodr)*pidr !STANDARD - l=3 TERM
+                ayprime(jx)=pidrdot
+            end if
+        end if
+    end if ! no_darkrad_multpoles
+! END OF DR EQUATIONS OF MOTION 
+
+2366: if (EV%no_darkrad_multpoles) then
+            pidrdot=0
+            qdrdot = -4*dz/3
+      end if
+2398: dgpi  = grhor_t*pir + grhog_t*pig + grhodr_t*pidr
+2403: pidot_sum = grhog_t*pigdot + grhor_t*pirdot + grhodr_t*pidrdot
+2413: gpres=gpres_nu+ (grhog_t+grhor_t+grhodr_t)/3 +grhov_t*w_lam
+
+
+
+
+
+
+
+
+
+
+
+
+
